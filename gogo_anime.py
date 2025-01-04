@@ -75,5 +75,3 @@ def gogo_anime(anime, episode_no):
 
 
 gogo_anime(anime=argv[1], episode_no=argv[2])
-
-
