@@ -1,7 +1,18 @@
 from selenium import webdriver  # For automating the browser
 from selenium.webdriver.common.by import By  # To locate elements
+from sys import argv
 import os  # To interact with the operating system (for file paths)
 import time  # To add pauses between actions
+
+
+if len(argv) < 2:
+    print("Please provide the name of the anime")
+    exit(1)
+elif len(argv) < 3:
+    print("Please provide the episode number")
+    exit(1)
+
+
 
 
 def gogo_anime(anime, episode_no):
@@ -63,4 +74,6 @@ def gogo_anime(anime, episode_no):
     Mp4_1080p.click()
 
 
-gogo_anime('haikyuu', '2')
+gogo_anime(anime=argv[1], episode_no=argv[2])
+
+
