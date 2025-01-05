@@ -1,10 +1,16 @@
-from sys import argv
+from selenium import webdriver
+from selenium.webdriver.common.by import By
 
+  
+driver = webdriver.Edge()
+driver.get('https://www.managingmadrid.com/')
 
-def sum(first, second):
-    print(int(first) + int(second))
+driver.implicitly_wait(10)
 
+fanposts_button = driver.find_element(By.CSS_SELECTOR, 'nav > ul > li > a')
+link = fanposts_button.get_attribute('href')
+print(link)
 
-sum(first=argv[1], second=argv[2])
+driver.quit
 
-
+# Output: https://www.managingmadrid.com/fanposts

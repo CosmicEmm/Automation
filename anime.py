@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By  # To locate elements
 from sys import argv
 import os  # To interact with the operating system (for file paths)
 import time  # To add pauses between actions
+import subprocess # To run shell commands from within the Python script
 
 
 if len(argv) < 2:
@@ -26,6 +27,10 @@ def gogo_anime(anime, episode_no):
     ublock_origin = os.path.abspath(r'F:\Extensions\uBlock Origin.crx')
     options.add_extension(ublock_origin)
 
+    # Specify the location of the IDM extension
+    idm = os.path.abspath(r'F:/Extensions/idm.crx')
+    options.add_extension(idm)
+
     # Modify the browser settings to disable images (helps speed up loading and saves bandwidth)
     prefs = {
         "profile.managed_default_content_settings.images": 2  # 2 means disable images
@@ -35,7 +40,11 @@ def gogo_anime(anime, episode_no):
     # Launch the Edge browser with the specified options (including extensions and settings)
     driver = webdriver.Edge(options=options)
 
-    # Wait for 10 seconds to ensure the uBlock Origin extension is fully loaded
+    # Get all window handles (tabs) and switch to the main window
+    main_window = driver.window_handles[1]
+    driver.switch_to.window(main_window)
+
+    # Wait for 10 seconds to ensure the extensions are fully loaded
     time.sleep(10)
 
     # Navigate to the "GogoAnime" website
@@ -62,16 +71,26 @@ def gogo_anime(anime, episode_no):
     download_button = driver.find_element(By.CSS_SELECTOR, 'li.dowloads a')
     download_button.click()
 
-    # Get all window handles (tabs) and switch to the newly opened download tab
-    window_handles = driver.window_handles
-    driver.switch_to.window(window_handles[-1])
+    # Switch to the newly opened download window
+    download_window = driver.window_handles[-1]
+    driver.switch_to.window(download_window)
 
-    # Wait for 10 seconds to ensure the page is fully loaded
-    time.sleep(10)
+    # If an element isn't immediately found, the Driver will keep checking for it every 500 milliseconds for up to 10 seconds before returning an error.
+    driver.implicitly_wait(10)
 
-    # Find and click the '1080P - mp4' download link (for high-quality video)
+    # Find and extract the '1080P - mp4' download link (for high-quality video)
     Mp4_1080p = driver.find_element(By.XPATH, '//div[@class="dowload"]/a[contains(text(), "1080P - mp4")]')
-    Mp4_1080p.click()
+    download_link = Mp4_1080p.get_attribute('href')
+    driver.quit()
+
+    return download_link
 
 
-gogo_anime(anime=argv[1], episode_no=argv[2])
+link = gogo_anime(anime=argv[1], episode_no=argv[2])
+destination_folder = 'F:/Anime'
+
+# Building the command to launch IDM to start downloading the episode from the link and save it in the destination folder
+command = f'idman.exe /d "{link}" /p "{destination_folder}"'
+
+# Running the above command in the shell from within the Python script
+subprocess.run(command, shell=True)
