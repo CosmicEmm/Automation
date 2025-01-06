@@ -20,16 +20,9 @@ def gogo_anime(anime, episode_no):
     # Initialize browser options for Microsoft Edge
     options = webdriver.EdgeOptions()
 
-    # This option allows the Edge browser to stay open after the script ends
-    options.add_experimental_option('detach', True)
-
     # Specify the location of the uBlock Origin extension (this blocks ads and unwanted content)
     ublock_origin = os.path.abspath(r'F:\Extensions\uBlock Origin.crx')
     options.add_extension(ublock_origin)
-
-    # Specify the location of the IDM extension
-    idm = os.path.abspath(r'F:/Extensions/idm.crx')
-    options.add_extension(idm)
 
     # Modify the browser settings to disable images (helps speed up loading and saves bandwidth)
     prefs = {
@@ -40,11 +33,7 @@ def gogo_anime(anime, episode_no):
     # Launch the Edge browser with the specified options (including extensions and settings)
     driver = webdriver.Edge(options=options)
 
-    # Get all window handles (tabs) and switch to the main window
-    main_window = driver.window_handles[1]
-    driver.switch_to.window(main_window)
-
-    # Wait for 10 seconds to ensure the extensions are fully loaded
+    # Wait for 10 seconds to ensure the uBlock Origin extension is fully loaded
     time.sleep(10)
 
     # Navigate to the "GogoAnime" website
