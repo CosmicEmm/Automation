@@ -1,131 +1,115 @@
-from selenium import webdriver  # For automating the browser
-from selenium.webdriver.common.by import By  # To locate elements
-from selenium.webdriver.common.keys import Keys # To simulate keyboard keys
-from selenium.common.exceptions import TimeoutException, NoSuchElementException # To handle exceptions related to timeouts
-from selenium.webdriver.support.wait import WebDriverWait # To implement explicit waits
-from selenium.webdriver.support import expected_conditions as EC # To specify the expected conditions for the explicit waits
-from sys import argv  # To access command-line arguments
-import os  # To interact with the operating system (for file paths)
-import time  # To add pauses between actions
+from playwright.sync_api import Playwright, sync_playwright, TimeoutError
+from sys import argv
+import subprocess
 import logging
-import subprocess # To run shell commands from within the Python script
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
 
-# Check if the user has provided the name of the anime and the episode number as command-line arguments
-if len(argv) < 2:
-    print("Please provide the name of the anime")
-    exit(1)
-elif len(argv) < 3:
-    print("Please provide the episode number")
-    exit(1)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def gogo_anime(anime, episode_no):
-    # Initialize browser options for Microsoft Edge
-    options = webdriver.EdgeOptions()
 
-    # Specify the location of the uBlock Origin extension
-    ublock_origin = os.path.abspath(r'F:\Extensions\uBlock Origin.crx')
-    options.add_extension(ublock_origin)
-
-    # Modify the browser settings to disable images (helps speed up loading and saves bandwidth)
-    options.add_argument("--blink-settings=imagesEnabled=false")
-
-    # options.add_argument("--headless")
+def argv_check() -> bool:
+    if len(argv) < 2:
+        print("Please provide the name of the anime")
+        exit(1)
+    elif len(argv) < 3:
+        print("Please provide the episode number")
+        exit(1)
+    elif len(argv) < 4:
+        try:
+            int(argv[2])
+            print('Specify the browser mode: 1 for Headless; 0 for Headed')
+        except ValueError:
+            print("Invalid episode number. Please provide a valid integer.")
+        finally:
+            exit(1)
+    else:
+        if argv[3] not in ['0', '1']:
+            print("Invalid browser mode. Use 1 for headless or 0 for headed.")
+            exit()
+        mode = bool(int(argv[3])) # 1 --> True; 0 --> False
     
-    # Launch the Edge browser with the specified options (including extensions and settings)
-    driver = webdriver.Edge(options=options)
-
-    # Wait for 10 seconds to ensure the uBlock Origin extension is fully loaded
-    time.sleep(10)
-
-    # Set the global page load timeout for the session. If the page takes longer than 40 seconds to load, a TimeoutException will be raised
-    driver.set_page_load_timeout(50)
+    return mode
     
-    # Set the implicit wait time for the driver. This will be applicable for all the elements located by the driver
-    driver.implicitly_wait(5)
 
-    # Step 1: Load the GoGoAnime website
+def run(
+        playwright: Playwright,
+        anime: str,
+        episode_no: int,
+        browser_mode: bool
+    ) -> str:
+
+    userDataDir = 'F:\\UserData\\Edge'
+    extension_path = r'F:\\UserData\\Edge\uBlock Origin'
+
+    browser = playwright.chromium.launch_persistent_context(
+        userDataDir, channel="msedge",
+        headless=browser_mode,
+        args=[
+            f"--disable-extensions-except={extension_path}",
+            f"--load-extension={extension_path}"
+        ]
+    )
+    
+    page = browser.new_page()
+
+    logging.info('🌐 Setting sail to the GOGOAnime website... Hold on tight!')
+    page.goto("https://ww19.gogoanimes.fi/")
+    logging.info('🚀 Website successfully loaded! Ready for the adventure to begin!')
+    page.locator('[placeholder="search"]').click()
+    logging.info("🧐 Inputting search query... Let's find that anime!")
+    page.locator('[placeholder="search"]').fill(f"{anime}")
+    page.locator('[onclick="do_search();"]').click()
+    logging.info('🌀 Sifting through the vast animeverse...')
+    logging.info('🎯 Aha! Found the one you were looking for! Great choice!🔥')
+    page.locator('ul > li:nth-child(1) > p.name > a').click()
+    logging.info('📜 Loading the episode list... Almost there!')
+    logging.info("✅ Episode list loaded! Let’s see what we have!")
+    logging.info(f"🔍 Locating episode {episode_no}... It’s got to be here somewhere!")
+    page.locator(f"#episode_related > li:nth-last-child({episode_no}) > a > div.name").click()
+    logging.info('🙌 Episode found! The quest continues!')
+    download_url = page.locator("div.favorites_book > ul > li.dowloads > a").get_attribute('href')
+    
     try:
-        logging.info("Loading the GoGoAnime website...")
-        driver.get('https://ww19.gogoanimes.fi/')
-    except TimeoutException:
-        pass # Continue to the next step even if the website takes longer than 40 seconds to load
-    finally:
-        logging.info("Website Loaded!") # Log a message indicating that the website has been loaded successfully
-
-    
-    try:
-        # Step 2: Locate the search input box and enter the anime name
-        logging.info("Locating the search input box...")
-        search_box = driver.find_element(By.ID, "keyword")
-        logging.info("Search box located, typing anime name...")
-        search_box.send_keys(f'{anime}')
-    
-        # Step 3: Initiate the search by simulating the Enter key press
-        logging.info("Loading search results...")
-        search_box.send_keys(Keys.ENTER)
-    except NoSuchElementException:
-        logging.error("Unable to locate the search box")
-        driver.quit()
-        return None
-    except TimeoutException:
+        logging.info('⏳ Navigating to the download directory... Please wait, the treasure is almost yours!')
+        page.goto(download_url)
+    except TimeoutError:
         pass
-
     
     try:
-        # Step 4: Click on the first search result
-        logging.info("Clicking the first search result to proceed to the episodes directory...")
-        search_result = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "p.name a")))
-        search_result.click()
+        logging.info('🔑 Extracting the 1080P download link... The magic is happening!')
+        link_element = page.locator("#content-download > div:nth-child(1) > div:nth-child(6) > a")
+        href = link_element.get_attribute('href')
+        logging.info('🎉 Yatta! Download link successfully extracted! You did it!')
+        logging.info('🎬 Your anime adventure is about to begin! Grab your snacks! 🍿')
+        logging.info('👋 Until next time, stay awesome and keep watching!')
+    except TimeoutError:
+        logging.error('Unable to extract the download link. Try again later!')
+        return None
     
-        # Step 5: Locate and click on the specific episode
-        logging.info("Locating the specific episode...")
-        # nth-last-child is a pseudo-class that locates elements based on their position as a child of a parent, counting from the end.
-        episode = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, f"#episode_related > li:nth-last-child({episode_no}) > a")))
-        episode.click()
-    
-        # Step 6: Click on the download button for the episode
-        logging.info("Clicking the download button to access the download links...")
-        download_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'li.dowloads a')))
-        download_button.click()
-        
-        # Step 6: Switch to the download window and extract the download link
-        logging.info("Switching to the download window...")
-        download_window = driver.window_handles[-1]
-        driver.switch_to.window(download_window)
-        logging.info("Extracting the 1080p download link...")
-        Mp4_1080p = WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.XPATH, '//div[@class="dowload"]/a[contains(text(), "1080P - mp4")]')))
-        download_link = Mp4_1080p.get_attribute('href') # Extract the download link
-        logging.info("Download link successfully extracted!")
-        
-    except TimeoutException:
-            logging.error(f"Timeout during element interaction")
-            driver.quit()
-            return None # Return None if the timeout exception occurs
-    
-    
-    # Close the browser session
-    print("Closing the browser session...")
-    driver.quit()
-    return download_link # Return the download link
+    # ---------------------
+    browser.close()
+    return href
 
 
-# Call the function
-link = gogo_anime(anime=argv[1], episode_no=argv[2])
-print(link)
+mode = argv_check()
 
-# Check if the download link was successfully extracted
-if link is None:
+# Running the function
+with sync_playwright() as playwright:
+    url = run(
+             playwright,
+             anime=argv[1],
+             episode_no=argv[2],
+             browser_mode=mode
+        )
+
+
+if url is None:
     exit(1)
 else:
-    pass # Continue to the next step
+    pass
 
 destination_folder = 'F:/Anime'
 
-# Constructing the command to launch IDM to start downloading the episode from the link and save it in the destination folder
-command = f'idman.exe /d "{link}" /p "{destination_folder}" /f "{argv[1]}"-EP"{argv[2]}".mp4'
+idm = f'idman.exe /d "{url}" /p "{destination_folder}" /f "{argv[1]}"-EP"{argv[2]}".mp4'
+subprocess.run(idm, shell=True)
 
-# Running the above command in the shell from within the Python script
-subprocess.run(command, shell=True)
